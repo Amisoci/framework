@@ -1,0 +1,4 @@
+{% macro template(name,age) %}
+	<p>Name: {{ name }}
+	<p>Age: {{ age }}
+{% endmacro %}
