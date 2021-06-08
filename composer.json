@@ -1,0 +1,17 @@
+{
+    "name": "amisoci/framework",
+    "description": "A simple but complex PHP framework",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Codey Miller",
+            "email": "codeychase@amisoci.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {"vitalis\\HelloWorld\\": "src/"}
+    },
+    "require": {}
+}
