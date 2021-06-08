@@ -1,4 +1,4 @@
 1. Create database if required, if not, skip to step 3.
 2. Run scripts/setup.sql on your database.
-3. Update settings.php
-4. Create site with redirecting all URLs that don't match the regex pattern of "(\.css)|(\.svg)|(\.js)|(\.ico)" (include all other image formats in the same pattern) and redirect to route.php
+3. Change settings_example.php to settings.php and update values
+4. Create site with redirecting all URLs and redirect to index.php

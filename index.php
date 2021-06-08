@@ -5,20 +5,28 @@
 		speed();
 		include "settings.php";
 		setup();
+		if($_SERVER["HTTPS"]!="on"){
+			header("Location: https://".$_SERVER["SERVER_NAME"].$_SERVER["REQUEST_URI"]);
+			exit;
+		}
 		if(!in_array($_SERVER["SERVER_NAME"],settings("OPEN_URLS"))){
 			if(!isSelf()){
-				header("Location: http://".settings("MAIN_SITE_URL"));
+				header("Location: https://".settings("MAIN_SITE_URL").$_SERVER["REQUEST_URI"]);
+				exit;
 			}
 		}
 		$http_accept = explode(",",$_SERVER["HTTP_ACCEPT"])[0];
-		if((settings("REQUIRE_LOGIN")=="true"&&(!in_array($_SERVER["REQUEST_URI"], settings("LOGIN_NOT_REQUIRED"))&&!isset($_COOKIE["login_id"])))&&$http_accept=="text/plain"){
-			if(!isset($_SESSION["return_url"])||!$_SESSION["return_url"]){
-				$_SESSION["return_url"] = $_SERVER["REQUEST_URI"];
-			}
-			header("Location: ".settings("LOGIN_REDIRECT"));
-		}
 		// Do not output personal things above these lines as they could be viewable by anyone, on development and live sites
 		$data=array("request"=>array("get"=>$_GET,"post"=>$_POST,"uri"=>array("url"=>$_SERVER["REQUEST_URI"],"query"=>$_SERVER["QUERY_STRING"])));
+		$version_db_list=sqlGetAll("versions");
+		$version_list = array();
+		foreach($version_db_list as $version){
+			$version_list[$version["type"]]=$version["version"];
+		}
+		$data["setup"]=array("handler"=>$file,"view"=>$view,"versions"=>$version_list);
+		$data["user"]=getLoggedInUser();
+		$content = array();
+		$data["content"]=$content;
 		$query_pos= strpos($_SERVER["REQUEST_URI"],"?");
 		if($query_pos){
 			$location = substr($_SERVER["REQUEST_URI"],0,$query_pos);
@@ -52,10 +60,12 @@
 			}
 			$location = substr($redirect["redirect"], 0,strpos($redirect["redirect"],"?"));
 		}
-		if(in_array($location,array("/login/login","signup/signup"))){
+		if(in_array($location,array("/login/login","/signup/signup","/verify_email_code","/assign_google_captcha_score"))){
 			$http_accept="text/plain";
 		}
-
+		if($http_accept=="*/*"&&preg_match("/^\/?media/", $location)){
+			$http_accept = "media";
+		}
 		switch($http_accept){
 			case "text/html":
 				$_SESSION["current_google_captcha_score"]=1;
@@ -72,7 +82,7 @@
 					include $file;
 				} else {
 					if(checkCsrfToken()){
-						echo "<h1>Failed Google Captcha, please try again</h1>";
+						echo "<h1>Failed Google Captcha, please try again: ".$_SESSION["current_google_captcha_score"]."</h1>";
 					} else {
 						echo "<h1>CSRF TOKEN ERROR</h1>";
 					}
@@ -107,16 +117,24 @@
 						exit;
 				}
 				exit;
+			case "media":
+				preg_match("/^\/?media\/([^\/]+)\/([^\/]+)\.([a-zA-Z0-9]+)/",$location,$media_details);
+				$location = "media/".$media_details[1]."/".$media_details[2].".".$media_details[3];
+				readfile($location);
+				exit;
 			default:
 				header("Content-type:text/javascript");
 				$request = $_SERVER["REQUEST_URI"];
 				echo display("js".substr($request,0,strpos($request,"?")));
 				exit;
 		}
-		$data["setup"]=array("handler"=>$file,"view"=>$view);
-		$data["user"]=getLoggedInUser();
-		$content = array();
-		$data["content"]=$content;
+		if((settings("REQUIRE_LOGIN")=="true"&&(!in_array($_SERVER["REQUEST_URI"], settings("LOGIN_NOT_REQUIRED"))&&!isset($_COOKIE["login_id"])))&&!strpos($_SERVER["REQUEST_URI"],"/ref/")===false){
+			if(!isset($_SESSION["return_url"])||!$_SESSION["return_url"]){
+				$_SESSION["return_url"] = $_SERVER["REQUEST_URI"];
+			}
+			header("Location: ".settings("LOGIN_REDIRECT"));
+			exit;
+		}
 		if(file_exists($file)||isset($render_view)||file_exists($view)){
 			if(file_exists($file)){
 				include $file;
@@ -153,6 +171,7 @@
 			} else {
 				$html.=display("head.coch",$data);
 				$html.="<h1>Error 404 Page Not Found</h1>";
+				sqlInsert("error_log",array("error_code"=>$error_code,"message"=>$location));
 				$html.=display("foot.coch");
 			}
 		}

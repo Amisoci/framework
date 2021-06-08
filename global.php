@@ -13,10 +13,10 @@
 	// use Mailgun\Mailgun;
 	$gethtml=true;
 	$_SESSION["test_data"] = "";
-	function settings($name="",$value=false){
+	function settings($name="",$value=null){
 		if($name===""){
 			return $GLOBALS["settings"];
-		} elseif($value!==false){
+		} elseif($value!==null){
 			$GLOBALS["settings"][$name] = $value;
 		} else {
 			if(!isset($GLOBALS["settings"][$name])){
@@ -44,7 +44,7 @@
 		}
 	}
 	function checkGoogleCaptchaScore(){
-		if($_SERVER["REQUEST_URI"]=="/assign_google_captcha_score"||$_SESSION["current_google_captcha_score"]>0.7){
+		if($_SERVER["REQUEST_URI"]=="/assign_google_captcha_score"||$_SESSION["current_google_captcha_score"]>=0.7){
 			return true;
 		} else {
 			return false;
@@ -237,7 +237,7 @@
 			switch($item[1]){
 				case "set":
 					$set_tag = $item[0];
-					if(preg_match("/{%[ ]*set[ ]*([\s\S]*?)[ ]*=([\s\S]*?)%}/",$set_tag,$match)){
+					if(preg_match("/{%[ ]*set[ ]*([\s\S]*?)[ ]*=[ ]*([\s\S]*?)[ ]*%}/",$set_tag,$match)){
 						$var_name = $match[1];
 						$value = evaluate($match[2],$data,null,true)["expression"];
 						$data[$var_name] = $value;
@@ -610,7 +610,7 @@
 				$string_list[] = $value;
 			}
 		}
-		if(count($string_list)){
+		if($string_list){
 			preg_match_all("/\\\\([\d]+)\\\\/", $expression,$end_string_identity_list);
 			foreach($end_string_identity_list[0] as $index=>$search){
 				$id = $end_string_identity_list[1][$index];
@@ -804,7 +804,7 @@
 		if(isset($_COOKIE["login_id"])) {
 			$salt = $_COOKIE["salt"];
 			$login_id = $_COOKIE["login_id"];
-			$current_login = sqlGetBy("logins",array("loginid"=>crypt($login_id.settings("ADDITIONAL_PASSWORD_KEY"),$salt)))[0];
+			$current_login = sqlGetBy("logins",array("loginid"=>crypt($login_id.settings("ADDITIONAL_PASSWORD_KEY").getUserIpAddress(),$salt)))[0];
 			$verify_login=false;
 			if($current_login){
 				$verify_login = crypt($login_id.$current_login["users"]["id"].settings("ADDITIONAL_PASSWORD_KEY"),$salt)==$current_login["additional_security_code"];
@@ -828,7 +828,7 @@
 		} else {
 			return array();
 		}
-		if($user["verified_email"]=="N"){
+		if(explode(",",$_SERVER["HTTP_ACCEPT"])[0]=="text/html"&&$user["verified_email"]=="N"){
 			if(!preg_match("/\/verify_email/",$_SERVER["REQUEST_URI"])&&!preg_match("/\/favicon\.ico/",$_SERVER["REQUEST_URI"])){
 				header("Location: /verify_email?id=".$user["loginid"]);
 				exit;
@@ -926,6 +926,8 @@
 		}
 	}
 	function sqlModel($table,$rows){
+		$current_show_sql = $GLOBALS["show_sql"];
+		unset($GLOBALS["show_sql"]);
 		$table = sql("SELECT * from INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '".settings("DB_DBNAME")."' AND TABLE_NAME = ?",array($table));
 		$model = array();
 		foreach($table as $col){
@@ -934,6 +936,7 @@
 				$model[$name] = $rows[$name];
 			}
 		}
+		sqlShow($current_show_sql);
 		return $model;
 	}
 	function sqlShow($show = false){
@@ -1006,7 +1009,7 @@
 				$j++;
 			}
 			call_user_func_array(array($stmt,"bind_param"),$params);
-			if(isset($GLOBALS["show_sql"])){
+			if(isset($GLOBALS["show_sql"])&&isSelf()){
 				dump($params);
 				echo "<br>".$sql."<br>";
 				if($GLOBALS["show_sql"]){
@@ -1107,8 +1110,8 @@
 		$rows = sqlModel($table,$rows);
 		$sql = "SELECT * FROM ".$table. " WHERE true ";
 		foreach($rows as $col=>$val){
-			$sql.=" AND ".$col." ";
-			if(is_array($val)){
+			if(is_array($val)&&count($val)){
+				$sql.=" AND ".$col." ";
 				$sql.=" IN (";
 				$count = 0;
 				foreach($val as $value){
@@ -1119,8 +1122,11 @@
 					$sql.="?";
 				}
 				$sql.=") ";
-			} else {
+			} elseif(!is_array($val)) {
+				$sql.=" AND ".$col." ";
 				$sql.=" = ? ";
+			} else {
+				$sql.=" AND FALSE ";
 			}
 		}
 		return sql($sql, $rows);
@@ -1311,7 +1317,20 @@
 		return in_array($friend_id,getFriendIdList($user_id));
 	}
 	function getFriendList($user_id){
+		if(count(getFriendIdList($user_id))==0){
+			return array();
+		}
 		return sqlGetById("users",getFriendIdList($user_id));
+	}
+	function getUserIpAddress(){
+	    if(!empty($_SERVER['HTTP_CLIENT_IP'])){
+			$ip = $_SERVER['HTTP_CLIENT_IP'];
+	    }elseif(!empty($_SERVER['HTTP_X_FORWARDED_FOR'])){
+			$ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+	    }else{
+			$ip = $_SERVER['REMOTE_ADDR'];
+	    }
+	    return $ip;
 	}
 	function email($to,$subject,$name="",$html,$text="",$debug=0){
 
