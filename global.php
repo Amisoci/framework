@@ -13,10 +13,10 @@
 	// use Mailgun\Mailgun;
 	$gethtml=true;
 	$_SESSION["test_data"] = "";
-	function settings($name="",$value=null){
+	function settings($name="",$value=false){
 		if($name===""){
 			return $GLOBALS["settings"];
-		} elseif($value!==null){
+		} elseif($value!==false){
 			$GLOBALS["settings"][$name] = $value;
 		} else {
 			if(!isset($GLOBALS["settings"][$name])){
@@ -847,6 +847,9 @@
 		return $passer;
 	}
 	function dump($data, $echo=true){
+		if(!isSelf()){
+			return;
+		}
 		if($echo){
 			$info = debug_backtrace()[0];
 			$file_name = $info["file"];
