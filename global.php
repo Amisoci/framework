@@ -13,6 +13,7 @@
 	// use Mailgun\Mailgun;
 	$gethtml=true;
 	$_SESSION["test_data"] = "";
+	include "custom_global.php";
 	function settings($name="",$value=null){
 		if($name===""){
 			return $GLOBALS["settings"];
