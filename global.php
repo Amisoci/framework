@@ -1278,51 +1278,6 @@
 		$sql.=" (".$columns.") VALUES (".$values.");";
 		return sql($sql,$rows);
 	}
-	function getPosts($query_params){
-		$post_db_list = sqlGetBy("posts",$query_params);
-		$post_list = $post;
-		foreach($post_db_list as $item=>$post){
-			$post["edit"] = getLoggedInUser()["id"] == $post["users"]["id"];
-			$post_list[$item]=$post;
-		}
-		return $post_list;
-	}
-	function getParentPost($post){
-		$parent = sqlGetById("posts",array("id"=>$post["posts"]["id"]))[0];
-		if($parent){
-			$parent["edit"] = getLoggedInUser()["id"] == $parent["users"]["id"];
-			return $parent;
-		}
-	}
-	function getCommentList($post_list){
-		$post_id_list = array();
-		foreach($post_list as $post){
-			$post_id_list[] = $post["id"];
-		}
-		$comment_list = sqlGetBy("posts",array("posts_id"=>$post_id_list));
-		foreach($comment_list as $item=>$comment){
-			$comment["edit"] = getLoggedInUser()["id"] == $comment["users"]["id"];
-			$comment_list[$item] = $comment;
-		}
-		return $comment_list;
-	}
-	function getFriendIdList($user_id){
-		$friend_db_list = sql("SELECT CASE WHEN sender = ? THEN receiver ELSE sender END AS friend FROM friendships WHERE (sender=? OR receiver = ?) AND confirmed = 'Y'",array($user_id,$user_id,$user_id));
-		$friend_list = array();
-		foreach($friend_db_list as $friend){
-			$friend_list[] = $friend["friend"];
-		}
-		return $friend_list;
-	}
-	function isFriend($user_id,$friend_id){
-		return in_array($friend_id,getFriendIdList($user_id));
-	}
-	function getFriendList($user_id){
-		if(count(getFriendIdList($user_id))==0){
-			return array();
-		}
-		return sqlGetById("users",getFriendIdList($user_id));
-	}
 	function getUserIpAddress(){
 	    if(!empty($_SERVER['HTTP_CLIENT_IP'])){
 			$ip = $_SERVER['HTTP_CLIENT_IP'];
